@@ -1,0 +1,13 @@
+# Vim Swampfiles
+*.swp
+
+.idea/
+.vscode/
+
+.DS_Store
+build/
+
+
+test-controller
+test-initializer
+scripts/.build_image_gopath/*

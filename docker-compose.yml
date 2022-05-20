@@ -1,0 +1,112 @@
+version: '3'
+networks:
+    camino:
+volumes:
+  ipcs:
+    name: ipcs
+  mysql-data:
+    name: mysql-data
+  files:
+services:
+  node-1:
+    container_name: node-1
+    image: c4tplatform/camino-node:v0.2.1-rc1
+    command: [/files/start-node1.sh]
+    ports:
+        - '9661:9650'
+        - '9671:9651'
+    networks:
+        - camino
+    volumes:
+        - ./files:/files
+        - ipcs:/tmp
+    depends_on:
+        - indexer
+  node-2:
+    container_name: node-2
+    image: c4tplatform/camino-node:v0.2.1-rc1
+    command: ["/files/start-node2.sh"]
+    ports:
+        - '9662:9650'
+        - '9672:9651'
+    networks:
+        - camino
+    volumes:
+        - ./files:/files    
+    depends_on: 
+        - node-1
+  node-3:
+    container_name: node-3
+    image: c4tplatform/camino-node:v0.2.1-rc1
+    command: ["/files/start-node3.sh"]
+    ports:
+        - "9663:9650"
+        - '9673:9651'
+    networks:
+        - camino
+    volumes:
+        - ./files:/files 
+    depends_on: 
+        - node-2
+  node-4:
+    container_name: node-4
+    image: c4tplatform/camino-node:v0.2.1-rc1
+    command: ["/files/start-node4.sh"]
+    ports:
+        - "9664:9650"
+        - '9674:9651'
+    networks:
+        - camino
+    volumes:
+        - ./files:/files 
+    depends_on: 
+        - node-3  
+  node-5:
+    container_name: node-5
+    image: c4tplatform/camino-node:v0.2.1-rc1
+    command: ["/files/start-node5.sh"]
+    ports:
+        - "9665:9650"
+        - '9675:9651'
+    networks:
+        - camino    
+    volumes:
+        - ./files:/files
+    depends_on: 
+        - node-4   
+  indexer-api:
+    image: "c4tplatform/magellan:v0.1.1"
+    command: ["stream", "indexer", "api", "-c", "/opt/config.json"]
+    networks:
+      - camino
+    volumes:
+      - ipcs:/tmp
+      - ./magellan/config.standalone.json:/opt/config.json
+    restart: on-failure
+    depends_on:
+      - mysql
+    ports:
+      - 8080:8080
+  mysql:
+    image: "mysql:8.0.26"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./mysql/my.cnf:/etc/mysql/my.cnf
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: magellan
+    restart: on-failure
+  migrate:
+    image: "migrate/migrate:v4.14.1"
+    volumes:
+      - ./migrations:/migrations
+    depends_on:
+      - mysql
+    entrypoint: ["/bin/sh"]
+    command: |
+      -c 'while ! migrate -path=/migrations/ -database "mysql://root:password@tcp(mysql:3306)/magellan" up; do
+        sleep 1
+      done'
+    restart: on-failure
